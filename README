@@ -1,9 +1,33 @@
-Blender Scripts by Kevin 'Kiniou' Roy
-=====================================
+[> Blender NDS exporter:
 
-Here is a set of Blender Scripts sorted by type:
-./export/
-    This directory contains scripts which enable different kind of format to be exported
-./import/
-    This is the approximatively the same thing as above but inverted
+Are you developping a 3D app for the Nintendo DS?
+Are you using Blender to create astonishing 3D meshes?
+This script allow you to export easily your Blender meshes into NDS binary "GL-like" CallLists.
 
+[> Install:
+
+Before running the script with Blender , you must have the "Python Imaging Library" installed.
+For Debian/Ubuntu systems : aptitude install python-imaging
+For Windows : Download and install "Python Imaging Library" from website "www.pythonware.com/products/pil"
+
+Copy the script "nds_3d_export.py" into the "scripts" directory of Blender:
+ Linux/Mac : $(HOME)/.blender/scripts
+ Windows : ??? (I do not really know since I'm not using Windows ...)
+
+Run Blender and check the File > Export menu : you'll find a new entry called "Nintendo DS CallList".
+
+[> Changelog:
+
+v0.1:
+    UV-textured meshes + Normals + Colors.
+    Export into "C-style" format.
+    Export Texture into PCX Format with correct size.
+v0.2:
+    Export into "Binary" format.
+TODO :
+    - 3D Animation support
+    - Export directly into binary format
+
+[> Infos :
+author : Kevin Roy
+website : blog.knokorpo.fr
