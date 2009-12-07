@@ -1,7 +1,7 @@
 #!BPY
 """
     Nintendo DS CallList Exporter for Blender
-    Copyright © 2008, 2009 Kevin Roy
+    Copyright © 2008, 2009 Kevin Roy <kiniou_AT_gmail_DOT_com>
 
     Nintendo DS CallList Exporter for Blender is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
