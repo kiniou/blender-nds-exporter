@@ -35,42 +35,46 @@ Usage:
 Go to Export and type a name for the file.
 """
 
-from Blender.BGL import *
-import Blender
-from Blender import Texture,Image,Material,Object, Draw, BGL, Window , sys
-import random
-from random import random
-import math
-from math import *
+import struct
+import array
 
-from Numeric import *
-from struct import *
+import bpy
+import random
+import math
 
 # Define libnds binary functions and macros
 
 def floattov16(n) :
-    return array(n * (1<<12) , Float32).astype(Int16)
+    #return array.array(n * (1<<12) , Float32).astype(Int16)
+    return int( n * (1<<12) )
 
 def VERTEX_PACK(x,y) :
-    return array((x & 0xFFFF) | (y << 16) , Int32)
+    #return array.array((x & 0xFFFF) | (y << 16) , Int32)
+    return ( (x & 0xFFFF) | (y << 16) )
 
 def floattov10(n) :
     if (n>.998) :
-        return array(0x1FF , Int16)
+        #return array.array(0x1FF , Int16)
+        return ( 0x1FF )
     else :
-        return array(n * (1<<9) , Float32).astype(Int16)
+        #return array.array(n * (1<<9) , Float32).astype(Int16)
+        return int( n * (1<<9) ) 
 
 def NORMAL_PACK(x,y,z) :
-    return array((x & 0x3FF) | ((y & 0x3FF) << 10) | (z << 20) , Int32)
+    #return array.array((x & 0x3FF) | ((y & 0x3FF) << 10) | (z << 20) , Int32)
+    return ( (x & 0x3FF) | ((y & 0x3FF) << 10) | (z << 20) )
 
 def floattot16(n) :
-    return array( n * (1 << 4) , Float32).astype(Int16)
+    #return array.array( n * (1 << 4) , Float32).astype(Int16)
+    return int( n * (1 << 4) )
 
 def TEXTURE_PACK(u,v) :
-    return array( (u & 0xFFFF) | (v << 16) , Int32)
+    #return array.array( (u & 0xFFFF) | (v << 16) , Int32)
+    return ( (u & 0xFFFF) | (v << 16) )
 
 def RGB15(r,g,b) :
-    return array(r | (g << 5) | (b <<10 ) , Int32)
+    #return array.array(r | (g << 5) | (b <<10 ) , Int32)
+    return ( r | (g << 5) | (b <<10 ) )
 
 FIFO_VERTEX16  = 0x23
 FIFO_NORMAL    = 0x21
@@ -105,8 +109,8 @@ class _mesh_options (object) :
     __slots__ = 'format' , 'uv_export' ,'texfile_export' , 'normals_export' , 'color_export' , 'mesh_data' , 'mesh_name', 'texture_data' , 'texture_list' , 'texture_w' , 'texture_h', 'dir_path'
 
     def __init__(self,mesh_data,dir_path) :
-        self.format         = EXPORT_OPTIONS['FORMAT_BINARY']   #Which format for the export? FORMAT_BINARY->Binary, FORMAT_TEXT->C-Style
-        self.uv_export      = EXPORT_OPTIONS['NO_TEXCOORDS']    #Do we export uv coordinates? NO_TEXCOORDS->No, TEXCOORDS->Yes
+        self.format         = EXPORT_OPTIONS['FORMAT_TEXT']   #Which format for the export? FORMAT_BINARY->Binary, FORMAT_TEXT->C-Style
+        self.uv_export      = EXPORT_OPTIONS['TEXCOORDS']    #Do we export uv coordinates? NO_TEXCOORDS->No, TEXCOORDS->Yes
         self.normals_export = EXPORT_OPTIONS['NORMALS']         #Do we export normals coordinates ? NO_NORMALS->No, NORMALS->Yes
         self.color_export   = EXPORT_OPTIONS['NO_COLORS']          #Do we export color attributes ? COLORS->No, NO_COLORS->Yes
 
@@ -115,10 +119,13 @@ class _mesh_options (object) :
         self.texture_w = 0
         self.texture_h = 0
         self.list_textures() #Retrieve all texture bound to the Blender mesh
+#        print(self.mesh_data)
+#        print(self.mesh_data.uv_textures)
+#        print(dir(self.mesh_data))
         
-        if (self.mesh_data.faceUV ): self.uv_export = EXPORT_OPTIONS['TEXCOORDS']
+        if (self.mesh_data.active_uv_texture ): self.uv_export = EXPORT_OPTIONS['TEXCOORDS']
         else: self.uv_export = EXPORT_OPTIONS['NO_TEXCOORDS']
-        if (self.mesh_data.vertexColors ) : self.color_export = EXPORT_OPTIONS['COLORS']
+        if (self.mesh_data.vertex_colors ) : self.color_export = EXPORT_OPTIONS['COLORS']
         else: self.color_export = EXPORT_OPTIONS['NO_COLORS']
         
         self.dir_path = dir_path
@@ -126,13 +133,13 @@ class _mesh_options (object) :
         
 
     def list_textures(self) :
-        print "listing textures for mesh \"%s\"" % self.mesh_name
+        print("listing textures for mesh \"%s\"" % self.mesh_name)
         materials = self.mesh_data.materials
         self.texture_data = []
         #Here we take the first material in the mesh
         tex = []
         if len(materials)>0 :
-            tex = materials[0].getTextures()
+            tex = materials[0].textures
 
         self.texture_list = []
         #Here we take the first Texture of Image Type
@@ -140,20 +147,26 @@ class _mesh_options (object) :
         if len(tex)>0 :
             for t in tex :
                 if t != None :
-                    if (t.tex.getType() == 'Image' and t.tex.getImage() != None) :
-                        image = t.tex.getImage()
+                    if (type(t.texture) == bpy.types.ImageTexture and t.texture.image != None) :
+                        image = t.texture.image
                         self.texture_list.append(t)
-                        img_found = 1
+                        #TODO : When image size will be accessible
+                        #img_found = 1
+
                         #print "%s %dx%d" % (image.getName(),image.getSize()[0],image.getSize()[1])
 
         if (img_found == 1):
-            image = self.texture_list[0].tex.getImage()
+            print(dir(image))
+            print(image.display_aspect)
+            image = self.texture_list[0].texture.image
             self.texture_data.append(image)
 
-            w = image.getSize()[0]
-            h = image.getSize()[1]
-            ratio = float(w)/float(h)
-            print "Texture %s %dx%d ratio=%f" % (image.getName(),w,h,ratio)
+            w = 0
+            h = 0
+#            w = image.getSize()[0]
+#            h = image.getSize()[1]
+#            ratio = float(w)/float(h)
+#            print("Texture %s %dx%d ratio=%f" % (image.name,w,h,ratio))
 
             if (w > 128) : w = 128
             if (w < 8) : w = 8
@@ -163,22 +176,24 @@ class _mesh_options (object) :
 
             if (ratio < 1.0) :
                 w = h * (1/round(1/ratio))
-                print "ratio <  1 : Texture %s %dx%d" % (image.getName(),w,h)
+                print("ratio <  1 : Texture %s %dx%d" % (image.getName(),w,h))
             else :
                 h = w / round(ratio)
-                print "ratio >= 1 :Texture %s %dx%d" % (image.getName(),w,h)
+                print("ratio >= 1 :Texture %s %dx%d" % (image.getName(),w,h))
 
             self.texture_w = int(w)
             self.texture_h = int(h)
         else :
-            print "!!!Warning : Cannot find any textures bound to the mesh!!!"
-            print "!!!          TEXTURE_PACKs won't be exported           !!!"
+            print("!!!Warning : Cannot find any textures bound to the mesh!!!")
+            print("!!!          TEXTURE_PACKs won't be exported           !!!")
 
     def get_final_path_mesh(self):
-        return ( Blender.sys.join(self.dir_path,self.mesh_name + (".h" if (self.format) else ".bin")) )
+        return ("%s%s%s" % ( self.dir_path,self.mesh_name , (".h" if (self.format) else ".bin") ) )
+#        return ( Blender.sys.join(self.dir_path,self.mesh_name + (".h" if (self.format) else ".bin")) )
 
     def get_final_path_tex(self):
-        return ( Blender.sys.join(self.dir_path,self.mesh_name + ".pcx") )
+        return( "%s%s%s" % (self.dir_path , self.mesh_name , ".pcx") )
+#        return ( Blender.sys.join(self.dir_path,self.mesh_name + ".pcx") )
 
     def __str__(self):
         return "File Format:%s , Exporting Texture:%s , Exporting Normals:%s , Exporting Colors:%s" % (self.format,self.uv_export,self.normals_export,self.color_export)
@@ -190,7 +205,7 @@ class _nds_cmdpack_nop(object) :
     def __init__(self):
         self.cmd = {}
         self.cmd[EXPORT_OPTIONS['FORMAT_TEXT']] = "FIFO_NOP"
-        self.cmd[EXPORT_OPTIONS['FORMAT_BINARY']] = pack( 'b' , FIFO_NOP )
+        self.cmd[EXPORT_OPTIONS['FORMAT_BINARY']] = struct.pack( 'b' , FIFO_NOP )
 
 
         self.val = {}
@@ -215,12 +230,12 @@ class _nds_cmdpack_begin (object) :
     def __init__(self,begin_opt):
         self.cmd = {}
         self.cmd[EXPORT_OPTIONS['FORMAT_TEXT']] = "FIFO_BEGIN"
-        self.cmd[EXPORT_OPTIONS['FORMAT_BINARY']] = pack( 'b' , FIFO_BEGIN )
+        self.cmd[EXPORT_OPTIONS['FORMAT_BINARY']] = struct.pack( 'b' , FIFO_BEGIN )
 
 
         self.val = {}
         self.val[EXPORT_OPTIONS['FORMAT_TEXT']] = begin_opt
-        self.val[EXPORT_OPTIONS['FORMAT_BINARY']] = pack('<i' , GL_GLBEGIN_ENUM[begin_opt] )
+        self.val[EXPORT_OPTIONS['FORMAT_BINARY']] = struct.pack('<i' , GL_GLBEGIN_ENUM[begin_opt] )
 
 
     def get_cmd(self,format):
@@ -242,7 +257,7 @@ class _nds_cmdpack_end(object) :
     def __init__(self):
         self.cmd = {}
         self.cmd[EXPORT_OPTIONS['FORMAT_TEXT']] = "FIFO_END"
-        self.cmd[EXPORT_OPTIONS['FORMAT_BINARY']] = pack( 'b' , FIFO_END )
+        self.cmd[EXPORT_OPTIONS['FORMAT_BINARY']] = struct.pack( 'b' , FIFO_END )
 
 
         self.val = {}
@@ -270,12 +285,12 @@ class _nds_cmdpack_vertex (object) :
         x, y, z = vertex
         self.cmd = {}
         self.cmd[EXPORT_OPTIONS['FORMAT_TEXT']] = "FIFO_VERTEX16"
-        self.cmd[EXPORT_OPTIONS['FORMAT_BINARY']] = pack( 'b' , FIFO_VERTEX16 )
+        self.cmd[EXPORT_OPTIONS['FORMAT_BINARY']] = struct.pack( 'b' , FIFO_VERTEX16 )
 
 
         self.val = {}
         self.val[EXPORT_OPTIONS['FORMAT_TEXT']] = "VERTEX_PACK(floattov16(%f),floattov16(%f)) , VERTEX_PACK(floattov16(%f),0)" % (x,y,z)
-        self.val[EXPORT_OPTIONS['FORMAT_BINARY']] = pack('<ii' , VERTEX_PACK(floattov16(x) , floattov16(y)) , VERTEX_PACK(floattov16(z) , 0))
+        self.val[EXPORT_OPTIONS['FORMAT_BINARY']] = struct.pack('<ii' , VERTEX_PACK(floattov16(x) , floattov16(y)) , VERTEX_PACK(floattov16(z) , 0))
 
 
     def get_cmd(self, format):
@@ -298,12 +313,12 @@ class _nds_cmdpack_normal (object):
         x, y, z = normal
         self.cmd = {}
         self.cmd[EXPORT_OPTIONS['FORMAT_TEXT']] = "FIFO_NORMAL"
-        self.cmd[EXPORT_OPTIONS['FORMAT_BINARY']] = pack( 'b' , FIFO_NORMAL )
+        self.cmd[EXPORT_OPTIONS['FORMAT_BINARY']] = struct.pack( 'b' , FIFO_NORMAL )
 
 
         self.val = {}
         self.val[EXPORT_OPTIONS['FORMAT_TEXT']] =  "NORMAL_PACK(floattov10(%3.6f),floattov10(%3.6f),floattov10(%3.6f))" % (x,y,z)
-        self.val[EXPORT_OPTIONS['FORMAT_BINARY']] = pack('<i' , NORMAL_PACK(floattov10(x) , floattov10(y) , floattov10(z)))
+        self.val[EXPORT_OPTIONS['FORMAT_BINARY']] = struct.pack('<i' , NORMAL_PACK(floattov10(x) , floattov10(y) , floattov10(z)))
 
 
     def get_cmd(self, format):
@@ -325,12 +340,12 @@ class _nds_cmdpack_color (object):
         r,g,b = color
         self.cmd = {}
         self.cmd[EXPORT_OPTIONS['FORMAT_TEXT']] = "FIFO_COLOR"
-        self.cmd[EXPORT_OPTIONS['FORMAT_BINARY']] = pack( 'b' , FIFO_COLOR )
+        self.cmd[EXPORT_OPTIONS['FORMAT_BINARY']] = struct.pack( 'b' , FIFO_COLOR )
 
 
         self.val = {}
         self.val[EXPORT_OPTIONS['FORMAT_TEXT']] =  "RGB15(%d,%d,%d)" % (r,g,b)
-        self.val[EXPORT_OPTIONS['FORMAT_BINARY']] = pack( '<i' , RGB15(r,g,b) )
+        self.val[EXPORT_OPTIONS['FORMAT_BINARY']] = struct.pack( '<i' , RGB15(r,g,b) )
 
 
     def get_cmd(self, format):
@@ -353,12 +368,12 @@ class _nds_cmdpack_texture (object):
         u,v = uv
         self.cmd = {}
         self.cmd[EXPORT_OPTIONS['FORMAT_TEXT']] = "FIFO_TEX_COORD"
-        self.cmd[EXPORT_OPTIONS['FORMAT_BINARY']] = pack( 'b' , FIFO_TEX_COORD )
+        self.cmd[EXPORT_OPTIONS['FORMAT_BINARY']] = struct.pack( 'b' , FIFO_TEX_COORD )
 
 
         self.val = {}
         self.val[EXPORT_OPTIONS['FORMAT_TEXT']] =  "TEXTURE_PACK(floattot16(%3.6f),floattot16(%3.6f))" % (u,v)
-        self.val[EXPORT_OPTIONS['FORMAT_BINARY']] = pack( '<i' , TEXTURE_PACK( floattot16(u) , floattot16(v) ) )
+        self.val[EXPORT_OPTIONS['FORMAT_BINARY']] = struct.pack( '<i' , TEXTURE_PACK( floattot16(u) , floattot16(v) ) )
 
 
     def get_cmd(self, format):
@@ -420,27 +435,36 @@ class _nds_cmdpack (object) :
         return ( nb )
 
     def get_pack(self,format):
-        str = ""
+        if ( format == EXPORT_OPTIONS['FORMAT_TEXT'] ) :
+            str = ""
+        else :
+            str = []
         str += self.get_cmd(format)
         str += self.get_val(format)
         return ( str )
 
     def get_cmd(self,format):
-        cmd = ""
         c = self.commands
         if ( format == EXPORT_OPTIONS['FORMAT_TEXT'] ) :
+            cmd = ""
             cmd += "FIFO_COMMAND_PACK( %s , %s , %s , %s ),\n" % ( c[0].get_cmd(format) ,c[1].get_cmd(format) ,c[2].get_cmd(format) ,c[3].get_cmd(format) )
         elif ( format == EXPORT_OPTIONS['FORMAT_BINARY'] ) :
+            cmd = []
             cmd += c[0].get_cmd(format) + c[1].get_cmd(format) + c[2].get_cmd(format) + c[3].get_cmd(format)
         return cmd
 
     def get_val(self,format):
-        val = ""
-        for i in self.commands:
-            if ( i.get_val(format) != None ):
-                val += i.get_val(format)
-                if ( format == EXPORT_OPTIONS['FORMAT_TEXT'] ) :
+        if ( format == EXPORT_OPTIONS['FORMAT_TEXT'] ) :
+            val = ""
+            for i in self.commands:
+                if ( i.get_val(format) != None ):
+                    val += i.get_val(format)
                     val += ",\n"
+        else:
+            val = []
+            for i in self.commands:
+                if ( i.get_val(format) != None ):
+                    val += i.get_val(format)
 
         return val
 
@@ -477,9 +501,14 @@ class _nds_cmdpack_list (object):
         self.list[-1].terminate()
 
     def get_pack(self,format):
-        str = ""
+        if (format == EXPORT_OPTIONS['FORMAT_TEXT']) :
+            str = ""
+        else :
+            str = []
+
         for cp in self.list:
             str += cp.get_pack(format)
+                
         return ( str )
 
     def __str__(self):
@@ -494,12 +523,12 @@ class _nds_mesh (object) :
 
 
     def __init__(self,mesh_options):
-        print mesh_options
+        print( mesh_options )
         self.options = mesh_options
         self.quads = []
         self.triangles = []
         self.cmdpack_list = _nds_cmdpack_list()
-        print self.cmdpack_list
+#        print( self.cmdpack_list )
         self.cmdpack_count = 0
         
 
@@ -508,16 +537,17 @@ class _nds_mesh (object) :
         #self.rescale_mesh(mesh_options.mesh_data)
 
         self.prepare_cmdpack()
+#        print( self.cmdpack_list)
         self.construct_cmdpack()
 
     def save_tex(self) :
         try:
             import PIL.Image
         except ImportError :
-            print "Python Imaging Library not installed"
+            print( "Python Imaging Library not installed" )
         else :
-            print self.options.texture_data[0].filename
-            print Blender.sys.expandpath(self.options.texture_data[0].filename)
+            print( self.options.texture_data[0].filename )
+#            print( Blender.sys.expandpath(self.options.texture_data[0].filename) )
             if (self.options.texture_data[0].packed ) : self.options.texture_data[0].unpack(Blender.UnpackModes.USE_LOCAL)
             img = PIL.Image.open(Blender.sys.expandpath(self.options.texture_data[0].getFilename()))
             img_rgb = img.convert("RGB")
@@ -526,17 +556,22 @@ class _nds_mesh (object) :
             img_res.save(self.options.get_final_path_tex())
 
 
-    def add_nds_mesh_vertex(self,face,face_list):
-        for i, v in enumerate(face.v):
+    def add_nds_mesh_vertex(self,blender_mesh , face,face_list):
+        for n,i in enumerate(face.verts):
             nds_mesh_vertex = _nds_mesh_vertex()
             #we copy vertex's coordinates information
-            nds_mesh_vertex.vertex = _nds_cmdpack_vertex(v.co)
+            nds_mesh_vertex.vertex = _nds_cmdpack_vertex(blender_mesh.verts[i].co)
             #we copy vertex's normals information
-            nds_mesh_vertex.normal = _nds_cmdpack_normal(v.no)
+            nds_mesh_vertex.normal = _nds_cmdpack_normal(blender_mesh.verts[i].normal)
             #we copy vertex's UV coordinates information only if there is UV layer for the current mesh
             if (self.options.uv_export) :
-                if (face.uv[i].x >= 0 and face.uv[i].y >= 0):
-                    nds_mesh_vertex.uv = _nds_cmdpack_texture( ( face.uv[i].x * self.options.texture_w , (1-face.uv[i].y) * self.options.texture_h))
+                uv = blender_mesh.active_uv_texture.data[face.index].uv[n]
+                
+#                for n,ut in enumerate(blender_mesh.active_uv_texture.data) :
+#                    for u in ut.uv : print(n,float(u[0]), float(u[1]))
+#                if (face.uv[i].x >= 0 and face.uv[i].y >= 0):
+                #nds_mesh_vertex.uv = _nds_cmdpack_texture( ( face.uv[i].x * self.options.texture_w , (1-face.uv[i].y) * self.options.texture_h))
+                nds_mesh_vertex.uv = _nds_cmdpack_texture( ( uv[0] , (1-uv[1])))
             #we copy vertex's color only if there is Color Layer for the current mesh
             if (self.options.color_export) :
                 nds_mesh_vertex.color = _nds_cmdpack_color( (face.col[i].r * 32 / 256 , face.col[i].g * 32 / 256, face.col[i].b * 32 / 256) )
@@ -546,11 +581,11 @@ class _nds_mesh (object) :
     def get_faces(self,blender_mesh):
         for face in blender_mesh.faces :
             #we process the face only if this is a quad
-            if (len(face) == 4) :
-                self.add_nds_mesh_vertex(face,self.quads)
+            if (len(face.verts) == 4) :
+                self.add_nds_mesh_vertex(blender_mesh , face , self.quads)
             #we process the face only if this is a triangle
-            elif (len(face) == 3) :
-                self.add_nds_mesh_vertex(face,self.triangles)
+            elif (len(face.verts) == 3) :
+                self.add_nds_mesh_vertex(blender_mesh , face , self.triangles)
 
     """TODO : I think there is a need to rescale the mesh because the range in the NDS is [-8.0, 8.0[ but I need to do some tests before"""
     def rescale_mesh(self,blender_mesh):
@@ -578,7 +613,7 @@ class _nds_mesh (object) :
                 f.vertex.x = v.x/max_l
                 f.vertex.y = v.y/max_l
                 f.vertex.z = v.z/max_l
-        print "longueur max = %s" % (max_l)
+        print( "longueur max = %s" % (max_l) )
 
     def prepare_cmdpack(self):
         #If there is at least 1 quad
@@ -632,19 +667,22 @@ class _nds_mesh (object) :
 
     def construct_cmdpack(self):
 
-        self.final_cmdpack = ""
 
         if (self.options.format == EXPORT_OPTIONS['FORMAT_TEXT']) :
             s = "u32 %s[] = {\n%d,\n%s" % ( self.options.mesh_name , self.cmdpack_list.get_nb_params() , self.cmdpack_list.get_pack(self.options.format) )
+            self.final_cmdpack = ""
             self.final_cmdpack += s[0:-2]
             self.final_cmdpack += "\n};\n"
+#            print(self.final_cmdpack)
         elif (self.options.format == EXPORT_OPTIONS['FORMAT_BINARY']) :
-            self.final_cmdpack += pack( '<i' , self.cmdpack_list.get_nb_params())
+            self.final_cmdpack = []
+            self.final_cmdpack += struct.pack( '<i' , self.cmdpack_list.get_nb_params())
             self.final_cmdpack += self.cmdpack_list.get_pack(self.options.format)
 
-        #print self.final_cmdpack
 
     def save(self) :
+        
+        print( 'saving %s in path %s' % (self,self.options.get_final_path_mesh()))
         f = open(self.options.get_final_path_mesh(),"w")
         f.write(self.final_cmdpack)
         f.close();
@@ -656,174 +694,144 @@ class _nds_mesh (object) :
 
 
 class _menu_nds_export (object) :
-    __slots__ = 'nb_meshes', 'mesh_options','selected_menu_mesh','popup_elm','button' , 'texID'
+    __slots__ = 'nb_meshes', 'mesh_options','selected_menu_mesh','popup_elm','button' , 'texID' , 'nds_export'
 
-    def __init__(self,dir_path):
-        self.nds_list_meshes(dir_path)
+    def __init__(self,properties, context):
+        print ( dir(properties.meshes) )
+        if (len(properties.meshes) == 0):
+            self.nds_list_meshes(context)
 
-    def nds_list_meshes(self,dir_path) :
-        print "Get current selected Meshes"
+    def nds_list_meshes(self , context) :
+        print( "List Meshes in data" )
 
-        scene = Blender.Scene.GetCurrent()
+        if ( len(self.properties.meshes) == 0) :
+            meshes = None
+            if hasattr(context,'selected_objects'):
+                meshes = context.selected_objects
 
-        objects = Blender.Object.GetSelected()
 
         self.nb_meshes = 0
         self.mesh_options = []
-        for cur_obj in objects :
-            if (cur_obj.getType()=="Mesh") :
-                self.mesh_options.append( _mesh_options( cur_obj.getData(name_only=False,mesh=True) , dir_path) )
-                self.nb_meshes += 1
+        if meshes:
+            for mesh in meshes :
+                if (type(mesh.data)==bpy.types.Mesh) :
+                    self.mesh_options.append( _mesh_options( mesh.data , dir_path) )
+                    self.nb_meshes += 1
 
         button = []
 
+        if(self.nb_meshes > 0) :
+            self.nds_export = _nds_mesh(self.mesh_options[0])
 
-    def _menu_meshes_select(self,event, val) :
-        print "%s , %s" % (event,val)
 
-    def _menu_gui(self) :
+class ExportNDS(bpy.types.Operator) :
+    '''Export to Nintendo DS Binary CallList'''
+    bl_idname = "export.nds"
+    bl_label = "Export Nintendo DS"
+
+    path = bpy.props.StringProperty(name='Path' , description="Path used for exporting Nintendo DS Binary CallList" , maxlen=1024 , default="")
+    filename = bpy.props.StringProperty(name='FileName' , description="FileName used for exporting Nintendo DS Binary CallList" , maxlen=1024 , default="")
+    directory = bpy.props.StringProperty(name='Directory' , description="Directory used for exporting Nintendo DS Binary CallList" , maxlen=1024 , default="")
+
+    def execute(self , context) :
+        print("Path:%s" % self.properties.path)
+        print("Filename:%s" % self.properties.filename)
+        print("Directory:%s" % self.properties.directory)
+
+        meshes = []
+
+#        print(dir(context.main))
+
+        if ( hasattr(context , 'selected_objects') ):
+            for obj in context.selected_objects :
+                if ( type(obj) == bpy.types.Mesh ) :
+                    meshes.append( _nds_mesh( _mesh_options( obj.data , self.properties.directory ) ) )
+        else : #Export all exportable meshes (means we are in background mode)
+            for mesh in context.main.meshes :
+                print('building export of mesh %s' % mesh.name)
+                meshes.append( _nds_mesh( _mesh_options( mesh , self.properties.directory) ) )
         
-        glEnable(GL_TEXTURE_2D)
-        gluOrtho2D(0, 0, -500, -500)
-        glClearColor(1,1,1,1)
-        glClear(GL_COLOR_BUFFER_BIT)
-        glColor3f(0,0,0)
-        glRasterPos2d(5, 200 + 15 )
-        Draw.Text( "Mesh to export : %s" % (self.mesh_options[0].mesh_name) )
-        glRasterPos2d(5, 200 + 15 -15)
-        Draw.Text( "Save Format : %s" % ("C-Style Format" if (self.mesh_options[0].format) else "NDS Binary CallList" ) )
-        glRasterPos2d(5, 200 + 15 -30)
-        #Draw.Text( "Save Mesh into file : %s" % (Blender.sys.join(self.mesh_options[0].dir_path,self.mesh_options[0].mesh_name + (".h" if (self.mesh_options[0].format) else ".bin")) ) )
-        Draw.Text( "Save Mesh into file : %s" % self.mesh_options[0].get_final_path_mesh())
-        glRasterPos2d(5, 200 + 15 -45)
-        if (self.mesh_options[0].texfile_export == 1) :
-            #Draw.Text( "Save Texture into file : %s" % (Blender.sys.join(self.mesh_options[0].dir_path,self.mesh_options[0].mesh_name + ".pcx") ) )
-            Draw.Text( "Save Texture into file : %s" % self.mesh_options[0].get_final_path_tex())
-        else :
-            Draw.Text( "No Texture export" )
+        for m in meshes:
+            m.save()
+            
 
-        Draw.PushButton("GO!! Export!!" , 99 , 5 , 200 + 15 - 75 ,128, 20)
+        return ('FINISHED',)
 
-        Draw.Toggle( "C-Style File"   , 1 , 5 , 5 + 0  + 2 , 128 , 20 , self.mesh_options[0].format)
-        Draw.Toggle( "Texture"        , 2 , 5 , 5 + 20 + 4 , 128 , 20 , self.mesh_options[0].uv_export )
-        Draw.Toggle( "Normals"        , 3 , 5 , 5 + 40 + 6 , 128 , 20 , self.mesh_options[0].normals_export)
-        Draw.Toggle( "Colors "        , 4 , 5 , 5 + 60 + 8 , 128 , 20 , self.mesh_options[0].color_export)
+    def invoke(self, context, event) :
+        wm = context.manager
+        wm.add_fileselect(self)
+        return ('RUNNING_MODAL',)
 
+#    def poll(self, context):
+#        print("NDS Poll")
+#        return True
 
-        glBegin(GL_LINE_LOOP)
-        glColor3f(0.0,0.0,0.0)
-        glVertex2i( 5 + 128 + 5 , 5 + 128 + 0   )
-        glVertex2i( 5 + 128 + 5 + 0 , 5 + 128 - ( 5 + 128 ) / 2   )
-        glVertex2i( 5 + 128 + 5 + 0 , 5 + 128 - ( 5 + 128 )   )
+    
+bpy.ops.add(ExportNDS)
 
-        glEnd()
+# Add to a menu
+import dynamic_menu
 
-        glBegin(GL_LINES)
-        glVertex2i( 0                         , 5 + 128 + 5  )
-        glVertex2i( 5 + 128 + 5 + 5 + 256 + 5 , 5 + 128 + 5   )
-        glEnd()
+def menu_func(self, context):
+    default_path = bpy.data.filename.replace(".blend", ".bin")
+    self.layout.operator(ExportNDS.bl_idname, text=ExportNDS.bl_label).path = default_path
 
-        self.texID = 0
-        
-        if (self.mesh_options[0].mesh_data.faceUV) :
-            if (self.mesh_options[0].uv_export ) :
-                if (len(self.mesh_options[0].texture_data) > 0) :
-                    img = self.mesh_options[0].texture_data[0]
-                    self.texID = img.glLoad()
+menu_item = dynamic_menu.add(bpy.types.INFO_MT_file_export, menu_func)
+    
 
-                    Draw.Toggle( "128" , 10 , 20 + 256, 5 +  0 +  2 , 32 , 20 , 1 if self.mesh_options[0].texture_w==128 else 0)
-                    Draw.Toggle( "64" , 11 , 20 + 256, 5 + 20 +  4 , 32 , 20 , 1 if self.mesh_options[0].texture_w==64  else 0)
-                    Draw.Toggle( "32" , 12 , 20 + 256, 5 + 40 +  6 , 32 , 20 , 1 if self.mesh_options[0].texture_w==32  else 0)
-                    Draw.Toggle( "16" , 13 , 20 + 256, 5 + 60 +  8 , 32 , 20 , 1 if self.mesh_options[0].texture_w==16  else 0)
-                    Draw.Toggle( "8" , 14 , 20 + 256, 5 + 80 + 10 , 32 , 20 , 1 if self.mesh_options[0].texture_w==8   else 0)
+if __name__ == "__main__" :
+    print("I'm running from command-line ;) ...")
+#    print( dir(bpy.ops.export.nds.get_rna().bl_rna.functions) )
+    print( "Blender File : %s" % bpy.context.main.filename )
 
-                    Draw.Toggle( "128" , 20 , 60 + 256, 5 +  0 +  2 , 32 , 20 , 1 if self.mesh_options[0].texture_h==128 else 0)
-                    Draw.Toggle( "64" , 21 , 60 + 256, 5 + 20 +  4 , 32 , 20 , 1 if self.mesh_options[0].texture_h==64  else 0)
-                    Draw.Toggle( "32" , 22 , 60 + 256, 5 + 40 +  6 , 32 , 20 , 1 if self.mesh_options[0].texture_h==32  else 0)
-                    Draw.Toggle( "16" , 23 , 60 + 256, 5 + 60 +  8 , 32 , 20 , 1 if self.mesh_options[0].texture_h==16  else 0)
-                    Draw.Toggle( "8" , 24 , 60 + 256, 5 + 80 + 10 , 32 , 20 , 1 if self.mesh_options[0].texture_h==8   else 0)
-
-                    glColor3f(1.0,1.0,1.0)
-                    glBindTexture(GL_TEXTURE_2D,self.texID)
-                    glBegin(GL_QUADS)
-                    glTexCoord2f(0,0)
-                    glVertex2i( 5 + 128 + 5 + 5 + 0   , 5 + 128 + 0   )
-                    glTexCoord2f(1,0)
-                    glVertex2i( 5 + 128 + 5 + 5 + self.mesh_options[0].texture_w , 5 + 128 + 0   )
-                    glTexCoord2f(1,-1)
-                    glVertex2i( 5 + 128 + 5 + 5 + self.mesh_options[0].texture_w , 5 + 128 - self.mesh_options[0].texture_h )
-                    glTexCoord2f(0,-1)
-                    glVertex2i( 5 + 128 + 5 + 5 + 0   , 5 + 128 - self.mesh_options[0].texture_h )
-                    glEnd()
-                    self.mesh_options[0].texfile_export = 1
-                else :
-                    glRasterPos2d(5 + 128 + 5 + 5 , 5 + 64 )
-                    Draw.Text("No Texture linked to this mesh")
-                    glRasterPos2d(5 + 128 + 5 + 5 , 5 + 64 - 15 )
-                    Draw.Text("Go to materials menu and load at least one image" )
-                    self.mesh_options[0].texfile_export = 0
-
-            else :
-                glRasterPos2d(5 + 128 + 5 + 5 , 5 + 64 )
-                Draw.Text("Click on the [Texture] button")
-                glRasterPos2d(5 + 128 + 5 + 5 , 5 + 64 - 15 )
-                Draw.Text("to display Texture export" )
-                self.mesh_options[0].texfile_export = 0
+   
+    import sys
+    
+    script_args_index = sys.argv.index('--')
+    print(sys.argv)
+    print("args index = %d" % script_args_index)
+    print("args len = %d" % len( sys.argv[script_args_index] ) )
+    if ( len( sys.argv[script_args_index] ) > 1 ) :
+        script_args = sys.argv[script_args_index+1:]
+    else :
+        script_args = []
+    print(script_args)
 
 
-    def _menu_event(self,evt,val) :
-        if (evt == Draw.ESCKEY) :
-            Draw.Exit()                 # exit when user presses ESC
-            return
-        Draw.Redraw(1)
+    from optparse import OptionParser
+    prog_usage = "usage: blender -b blend_file -P %prog -- [options] filename"
+    prog_name = "nds"
+    parser = OptionParser(usage=prog_usage,prog=prog_name)
 
-    def _menu_event_button(self,evt) :
-        if   evt==1 : self.mesh_options[0].format = 1 - self.mesh_options[0].format
-        elif evt==2 : self.mesh_options[0].uv_export = 1 - self.mesh_options[0].uv_export
-        elif evt==3 : self.mesh_options[0].normals_export = 1 - self.mesh_options[0].normals_export
-        elif evt==4 : self.mesh_options[0].color_export = 1 - self.mesh_options[0].color_export
-        elif evt==10 : self.mesh_options[0].texture_w = 128
-        elif evt==11 : self.mesh_options[0].texture_w = 64
-        elif evt==12 : self.mesh_options[0].texture_w = 32
-        elif evt==13 : self.mesh_options[0].texture_w = 16
-        elif evt==14 : self.mesh_options[0].texture_w = 8
-        elif evt==20 : self.mesh_options[0].texture_h = 128
-        elif evt==21 : self.mesh_options[0].texture_h = 64
-        elif evt==22 : self.mesh_options[0].texture_h = 32
-        elif evt==23 : self.mesh_options[0].texture_h = 16
-        elif evt==24 : self.mesh_options[0].texture_h = 8
-        elif evt==99 :
-            nds_export = _nds_mesh(self.mesh_options[0])
-            nds_export.save()
-            print nds_export
-            Draw.Exit()                 # exit when user presses ESC
-            return
-        Draw.Redraw(1)
+    parser.add_option("-q", "--quiet",
+                      action="store_false", dest="verbose", default=True,
+                      help="don't print status messages to stdout")
 
-def DSexport(dir_path):
-    print "---------------"
-    print " NDS  EXPORTER"
-    print "---------------"
+    parser.add_option("-l", "--list",
+                        action="store_const" ,const="list" , dest="command",
+                        help="List all meshes")
 
-    screens = Window.GetScreens()
-    for s in screens : print s
-    menu = _menu_nds_export(dir_path)
+    parser.add_option("-m" , "--mesh",
+                        action="store" , type="string" , dest="meshes", default="all",
+                        help="Select one or more meshes to export") 
+    
 
+    (prog_options, prog_args) = parser.parse_args(script_args)
+    print(prog_options , prog_args)
 
-    print "Mesh count = %d" % (menu.nb_meshes)
-
-    if ( menu.nb_meshes == 0) :
-        print "Problem : No mesh selected"
-        return
-
-    Draw.Register(menu._menu_gui, menu._menu_event, menu._menu_event_button)
-
-
-def my_callback(filename):
-#   if filename.find('/', -2) <= 0: filename += '.h' # add '.h' if the user didn't
-    #print Blender.sys.dirname(filename)
-    DSexport(Blender.sys.dirname(filename))
-
-
-fname = Blender.sys.makename(ext = "")
-Blender.Window.FileSelector(my_callback, "Select a directory","")
+    if (prog_options.command == 'list'):
+        print("List all available meshes")
+        for m in bpy.data.meshes :
+            print(m.name)
+    else :
+        bpy.ops.export.nds(directory="/tmp/")
+    
+    
+#def my_callback(filename):
+##   if filename.find('/', -2) <= 0: filename += '.h' # add '.h' if the user didn't
+#    #print Blender.sys.dirname(filename)
+#    DSexport(Blender.sys.dirname(filename))
+#
+#
+#fname = Blender.sys.makename(ext = "")
+#Blender.Window.FileSelector(my_callback, "Select a directory","")
