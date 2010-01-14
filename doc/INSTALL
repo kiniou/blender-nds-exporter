@@ -1,0 +1,44 @@
+
+[> IMPORTANT NOTES :
+- This script will not work with Alpha-0 release of Blender 2.5 but with svn revision greater than r25772.
+- PIL is no longer needed which means you must convert your textures (PNG for examples) with some external tools.
+- There is no UI at the moment like for the 2.4x flavor. Therefore when you export your model from the menu in Blender, 
+it will export with default options (see batch options below).
+- The last version of the script is batch-enabled so you can export your meshes with the batch_export_nds.py script.
+
+
+[> INSTALLING :
+Copy the script nds_3d_export.py in <path-to-blender2.5-scripts-directory>/io directory.
+
+small tip: There is now a python function called bpy.utils.script_paths() which return available script directories in an array.
+Go to the console screen in Blender and type in this function to know where you have to install the script.
+
+
+[> EXPORTING :
+There are 2 ways to export :
+ - from Blender File Menu -> Export -> NintendoDS CallList
+ - with the script batch_export_nds.py
+
+When you export from the menu, the default options are used. You just have to select a directory and the script will start to export.
+Note: the file name in the Directory Selector is not used since it take the Mesh name to create the final exported file.
+
+To export using batch_export_nds.py, write the following command in a console :
+blender -b <some-file.blend> -P <path-to-script>/batch_export_nds.py -- [export options]
+
+<some-file.blend> : Blender file with your models
+<path-to-script>  : The path where batch_export_nds.py is located
+[export options]  : Options to modify script behaviour
+
+Without any options, the script exports by default the following attributes from your model :
+	- binary format file (i.e mesh_name.bin + mesh_name.h)
+	- mesh vertexes,
+	- uv coordinates,
+	- normals
+	- animation
+
+If the script can’t find the relevant attributes to export (ex: if there are no UV coordinates), the corresponding options 
+are disabled automatically.
+The default exported file format is binary CallList (.bin) with a C header file to include to your project (.h). 
+If you need to export in text mode, just pass the --text options to the script.
+
+If the model has an animation, the script will export one file per frame : [mesh_name]_[action_name]_[frame_number].bin .

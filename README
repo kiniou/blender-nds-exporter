@@ -4,31 +4,26 @@ Are you developping a 3D app for the Nintendo DS?
 Are you using Blender to create astonishing 3D meshes?
 This script extends Blender to export easily your meshes into NDS binary "GL-like" CallLists.
 
-[> Install:
+[> Install + Run = Export:
 
-Note to former users: PIL is not needed anymore to export textures coordinates 
-but this means also the texture will not be exported into PCX anymore.
+Check the *doc* directory for documentation about installation or tutorials .
+Check also the wiki on github.
 
-Copy the script "nds_3d_export.py" into the "scripts" directory of Blender:
- Linux/Mac : $(HOME)/.blender/scripts
- Windows : ??? (I do not really know since I'm not using Windows ...)
 
-Note: Starting with blender 2.5, there is a function in Python located at 
-bpy.utils.script_paths() that show possible paths.
-
-Run Blender and check the File > Export menu : you'll find a new entry called "Nintendo DS CallList".
+[> Troubleshooting:
+Do not hesitate to fill an issue in the bug tracker or a comment on my blog in the relevant post.
 
 [> Changelog:
 
+v0.2:
+    Export into "Binary" format.
 v0.1:
     UV-textured meshes + Normals + Colors.
     Export into "C-style" format.
     Export Texture into PCX Format with correct size.
-v0.2:
-    Export into "Binary" format.
+
 TODO :
     - 3D Animation support
-    - Export directly into binary format
 
 [> Infos :
 author : Kevin Roy
