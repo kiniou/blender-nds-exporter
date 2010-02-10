@@ -133,7 +133,7 @@ class _mesh_options (object) :
 		#Here we take the first material in the mesh
 		tex = []
 		if len(materials)>0 :
-			tex = materials[0].textures
+			tex = materials[0].texture_slots
 
 		self.texture_list = []
 		#Here we take the first Texture of Image Type
