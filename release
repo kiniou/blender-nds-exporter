@@ -1,0 +1,11 @@
+#!/bin/bash
+i=0
+
+test=(`cat ./VERSION`)
+
+pkg="${test[0]}"
+version="${test[1]}"
+
+echo $pkg
+echo $version
+git archive -v --format=zip --prefix=$pkg/ -9 --output=../${pkg}-${version}.zip HEAD
